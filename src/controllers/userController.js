@@ -134,6 +134,7 @@ const updateProfile = async (req, res) => {
   // ✅ Add uploaded image path if exists
   if (req.file) {
     updateData.profilePhoto = `/uploads/${req.file.filename}`;
+    console.log("Setting profile photo to:", updateData.profilePhoto);
   }
 
     const user = await User.findByIdAndUpdate(
@@ -146,7 +147,8 @@ const updateProfile = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    res.status(200).json(user);
+    console.log("Updated user:", user);
+    res.status(200).json({ message: "Profile updated successfully", user });
   } catch (err) {
     console.error("Update Error:", err);
     res.status(500).json({ error: "Update failed" });
@@ -275,7 +277,7 @@ const adminupdateProfile = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    res.status(200).json(user);
+    res.status(200).json({ message: "Profile updated successfully", user });
   } catch (err) {
     console.error("Update Error:", err);
     res.status(500).json({ error: "Update failed" });
@@ -286,7 +288,7 @@ const uploadPhoto = async (req, res) => {
   try {
     const photoPath = `/uploads/${req.file.filename}`;
     const user = await User.findByIdAndUpdate(req.userId, { profilePhoto: photoPath }, { new: true });
-    res.status(200).json({ message: "Photo uploaded", photo: photoPath });
+    res.status(200).json({ message: "Photo uploaded", photo: photoPath, user });
   } catch (err) {
     res.status(500).json({ error: "Photo upload failed" });
   }
@@ -314,6 +316,8 @@ const getUserProfile = async (req, res) => {
       // Fetch updated user data
       user = await User.findById(userId).select("-password");
     }
+
+    console.log("User profile data:", user);
 
     // Fetch user's gallery photos
     const gallery = await UserGallery.findOne({ userId: userId });
