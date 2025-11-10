@@ -28,17 +28,40 @@ const getMatches = async (req, res) => {
 // ✅ GET /api/user/search
 const searchProfiles = async (req, res) => {
   try {
-    const { age, location, religion, caste } = req.query;
+    const { age, location, religion, caste, gender } = req.query;
     let query = { userType: 'user' }; // Exclude admin users from search
 
-    if (age) query.age = { $lte: Number(age) };
-    if (location) query.location = { $regex: location, $options: "i" };
-    if (religion) query.religion = religion;
-    if (caste) query.caste = caste;
+    console.log("🔍 Search filters received:", { age, location, religion, caste, gender });
+
+    if (age) {
+      query.age = { $lte: Number(age) };
+      console.log("Applied age filter:", query.age);
+    }
+    if (location) {
+      query.location = { $regex: location, $options: "i" };
+      console.log("Applied location filter:", query.location);
+    }
+    if (religion) {
+      query.religion = religion;
+      console.log("Applied religion filter:", query.religion);
+    }
+    if (caste) {
+      query.caste = caste;
+      console.log("Applied caste filter:", query.caste);
+    }
+    if (gender) {
+      // Case-insensitive match for gender
+      query.gender = { $regex: new RegExp(`^${gender}$`, 'i') };
+      console.log("Applied gender filter (case-insensitive):", query.gender);
+    }
+
+    console.log("📊 Final MongoDB query:", JSON.stringify(query, null, 2));
 
     const profiles = await User.find(query).select("-password");
     const currentUser = await User.findById(req.userId);
     if (!currentUser) return res.status(404).json({ message: "User not found" });
+
+    console.log("👥 Found", profiles.length, "profiles");
 
     const updatedProfiles = profiles.map((profile) => {
       const isMutual =
@@ -63,8 +86,10 @@ const searchProfiles = async (req, res) => {
       };
     });
 
+    console.log("✅ Returning", updatedProfiles.length, "profiles");
     res.status(200).json(updatedProfiles);
   } catch (error) {
+    console.error("❌ Search error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
@@ -393,7 +418,7 @@ const getAllAdminUsers = async (req, res) => {
 
 const getAllUsers = async (req, res) => {
   try {
-    const { age, location, religion, caste } = req.query;
+    const { age, location, religion, caste, gender } = req.query;
 
     const currentUserId = req.userId; // from authMiddleware
     //const currentUserId="688497d8ab49d4cd01ae5d82";
@@ -407,6 +432,7 @@ const getAllUsers = async (req, res) => {
     if (location) filter.location = { $regex: location, $options: "i" };
     if (religion) filter.religion = { $regex: religion, $options: "i" };
     if (caste) filter.caste = { $regex: caste, $options: "i" };
+    if (gender) filter.gender = { $regex: new RegExp(`^${gender}$`, 'i') };
 
     const users = await User.find(filter).select("-password");
     
