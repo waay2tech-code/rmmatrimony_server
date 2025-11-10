@@ -53,6 +53,13 @@ const searchProfiles = async (req, res) => {
         photo: isMutual ? profile.profilePhoto : "/blurred.png",
         about: isMutual ? profile.about : "Like to unlock full details",
         isMutualLike: isMutual,
+        qualification: profile.qualification,
+        occupation: profile.occupation,
+        religion: profile.religion,
+        caste: profile.caste,
+        memberid: profile.memberid,
+        gender: profile.gender,
+        profilePhoto: profile.profilePhoto,
       };
     });
 
@@ -731,17 +738,34 @@ const getUserProfileType = async (req, res) => {
 const getUserProfileById = async (req, res) => {
   try {
     const { id } = req.params;
+    const currentUserId = req.userId; // Get the current user ID from auth middleware
     
-    // Find user by ID and exclude password, ensuring it's a regular user
-    const user = await User.findOne({ _id: id, userType: 'user' }).select("-password");
+    // Find both users in parallel
+    const [user, currentUser] = await Promise.all([
+      User.findOne({ _id: id, userType: 'user' }).select("-password"),
+      User.findById(currentUserId)
+    ]);
     
-    if (!user) {
+    if (!user || !currentUser) {
       return res.status(404).json({ message: "User not found" });
+    }
+
+    // Check if there's a mutual like between current user and target user
+    const isMutualLike = 
+      user.likes.some(likeId => likeId.equals(currentUserId)) &&
+      currentUser.likes.some(likeId => likeId.equals(user._id));
+
+    // If not mutual like, hide sensitive information
+    const profileData = { ...user.toObject() };
+    if (!isMutualLike) {
+      profileData.mobile = "Hidden - Like this profile to view";
+      // We'll handle gallery separately in the gallery endpoint
     }
 
     res.status(200).json({ 
       success: true,
-      profile: user 
+      profile: profileData,
+      isMutualLike // Send this flag to frontend
     });
   } catch (error) {
     console.error("Error fetching user profile by ID:", error);
@@ -753,26 +777,47 @@ const getUserProfileById = async (req, res) => {
 const getUserGallery = async (req, res) => {
   try {
     const { id } = req.params; // This is the userId we want to fetch gallery for
+    const currentUserId = req.userId; // Get the current user ID from auth middleware
     
-    // Verify that the user is a regular user, not an admin
-    const user = await User.findOne({ _id: id, userType: 'user' });
-    if (!user) {
+    // Find both users in parallel
+    const [user, currentUser] = await Promise.all([
+      User.findOne({ _id: id, userType: 'user' }),
+      User.findById(currentUserId)
+    ]);
+    
+    if (!user || !currentUser) {
       return res.status(404).json({ message: "User not found" });
     }
     
+    // Check if there's a mutual like between current user and target user
+    const isMutualLike = 
+      user.likes.some(likeId => likeId.equals(currentUserId)) &&
+      currentUser.likes.some(likeId => likeId.equals(user._id));
+
+    // If not mutual like, return empty gallery
+    if (!isMutualLike) {
+      return res.status(200).json({ 
+        success: true,
+        gallery: [],
+        isMutualLike: false
+      });
+    }
+
     // Find gallery by userId
     const gallery = await UserGallery.findOne({ userId: id });
     
     if (!gallery) {
       return res.status(200).json({ 
         success: true,
-        gallery: [] // Return empty array if no gallery found
+        gallery: [], // Return empty array if no gallery found
+        isMutualLike: true
       });
     }
 
     res.status(200).json({ 
       success: true,
-      gallery: gallery.photos || []
+      gallery: gallery.photos || [],
+      isMutualLike: true
     });
   } catch (error) {
     console.error("Error fetching user gallery:", error);
