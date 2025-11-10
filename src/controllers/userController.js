@@ -438,7 +438,8 @@ const uploadToGallery = async (req, res) => {
     }
 
     // Always use forward slashes for URLs regardless of OS
-    const imageUrl = `uploads/${file.filename}`;
+    // Consistent with other image storage: use leading slash
+    const imageUrl = `/uploads/${file.filename}`;
 
     // Check if gallery already exists for user
     let gallery = await UserGallery.findOne({ userId });
