@@ -71,6 +71,8 @@ const searchProfiles = async (req, res) => {
       return {
         _id: profile._id,
         name: profile.name,
+        email: profile.email, // Add email field
+        mobile: profile.mobile, // Add mobile field
         age: profile.age,
         location: profile.location,
         photo: isMutual ? profile.profilePhoto : "/blurred.png",
@@ -83,6 +85,7 @@ const searchProfiles = async (req, res) => {
         memberid: profile.memberid,
         gender: profile.gender,
         profilePhoto: profile.profilePhoto,
+        profileType: profile.profileType // Add profileType field
       };
     });
 
@@ -230,7 +233,7 @@ const adminprofileupdateProfile = async (req, res) => {
     };
   // ✅ Add uploaded image path if exists
   if (req.file) {
-    updateData.profilePhoto = `/uploads/${req.file.filename}`;
+    updateData.profilePhoto = '/uploads/' + req.file.filename;
   }
 
     const user = await User.findByIdAndUpdate(
@@ -264,39 +267,35 @@ const adminupdateProfile = async (req, res) => {
    
     const updateData = {
       name: req.body.name,
-     
       email: req.body.email,
-       mobile: req.body.mobile,
-      
+      mobile: req.body.mobile,
       age: req.body.age,
       profileType: req.body.profileType,
-      
-      // dob: req.body.dob,
-       // gender: req.body.gender,
-      // address: req.body.address,
-      // location: req.body.location,
-      // mobile: req.body.mobile,
-      // qualification: req.body.qualification,
+      dob: req.body.dob,
+      gender: req.body.gender,
+      address: req.body.address,
+      location: req.body.location,
+      qualification: req.body.qualification,
       occupation: req.body.occupation,
-      // monthlyIncome: req.body.monthlyIncome,
-      // height: req.body.height,
-      // weight: req.body.weight,
-      // aboutMe: req.body.aboutMe,
-      // fatherName: req.body.fatherName,
-      // fatherOccupation: req.body.fatherOccupation,
-      // fatherNative: req.body.fatherNative,
-      // motherName: req.body.motherName,
-      // motherOccupation: req.body.motherOccupation,
-      // motherNative: req.body.motherNative,
-      // siblings: req.body.siblings,
-      // religion: req.body.religion,
-      // otherReligion: req.body.otherReligion,
+      monthlyIncome: req.body.monthlyIncome,
+      height: req.body.height,
+      weight: req.body.weight,
+      aboutMe: req.body.aboutMe,
+      fatherName: req.body.fatherName,
+      fatherOccupation: req.body.fatherOccupation,
+      fatherNative: req.body.fatherNative,
+      motherName: req.body.motherName,
+      motherOccupation: req.body.motherOccupation,
+      motherNative: req.body.motherNative,
+      siblings: req.body.siblings,
+      religion: req.body.religion,
+      otherReligion: req.body.otherReligion,
       caste: req.body.caste,
-      // otherCaste: req.body.otherCaste
+      otherCaste: req.body.otherCaste
     };
   // ✅ Add uploaded image path if exists
   if (req.file) {
-    updateData.profilePhoto = `/uploads/${req.file.filename}`;
+    updateData.profilePhoto = '/uploads/' + req.file.filename;
   }
 
     const user = await User.findByIdAndUpdate(
@@ -318,7 +317,7 @@ const adminupdateProfile = async (req, res) => {
 // ✅ Upload Photo
 const uploadPhoto = async (req, res) => {
   try {
-    const photoPath = `/uploads/${req.file.filename}`;
+    const photoPath = '/uploads/' + req.file.filename;
     const user = await User.findByIdAndUpdate(req.userId, { profilePhoto: photoPath }, { new: true });
     res.status(200).json({ message: "Photo uploaded", photo: photoPath, user });
   } catch (err) {
@@ -343,7 +342,7 @@ const getUserProfile = async (req, res) => {
 
     // Ensure user has a member ID, generate one if missing
     if (!user.memberid) {
-      console.log(`User ${user.name} missing member ID, generating...`);
+      console.log('User ' + user.name + ' missing member ID, generating...');
       await ensureMemberID(userId);
       // Fetch updated user data
       user = await User.findById(userId).select("-password");
@@ -383,7 +382,7 @@ const getadminUserProfile = async (req, res) => {
 
     // Ensure user has a member ID, generate one if missing
     if (!user.memberid) {
-      console.log(`User ${user.name} missing member ID, generating...`);
+      console.log('User ' + user.name + ' missing member ID, generating...');
       await ensureMemberID(userId);
       // Fetch updated user data
       user = await User.findById(userId).select("-password");
@@ -432,14 +431,15 @@ const getAllUsers = async (req, res) => {
     if (location) filter.location = { $regex: location, $options: "i" };
     if (religion) filter.religion = { $regex: religion, $options: "i" };
     if (caste) filter.caste = { $regex: caste, $options: "i" };
-    if (gender) filter.gender = { $regex: new RegExp(`^${gender}$`, 'i') };
+    if (gender) filter.gender = { $regex: new RegExp('^' + gender + '$', 'i') };
 
+    // Include all necessary fields for admin panel
     const users = await User.find(filter).select("-password");
     
     // Ensure all users have member IDs
     const usersWithMemberIDs = await Promise.all(users.map(async (user) => {
       if (!user.memberid) {
-        console.log(`User ${user.name} missing member ID, generating...`);
+        console.log('User ' + user.name + ' missing member ID, generating...');
         await ensureMemberID(user._id.toString());
         // Fetch updated user data with userType filter to ensure admin users are still excluded
         return await User.findOne({ _id: user._id, userType: 'user' }).select("-password");
@@ -465,7 +465,7 @@ const uploadToGallery = async (req, res) => {
 
     // Always use forward slashes for URLs regardless of OS
     // Consistent with other image storage: use leading slash
-    const imageUrl = `/uploads/${file.filename}`;
+    const imageUrl = '/uploads/' + file.filename;
 
     // Check if gallery already exists for user
     let gallery = await UserGallery.findOne({ userId });
@@ -500,7 +500,7 @@ const adminuploadToGallery = async (req, res) => {
     }
 
     // Always use forward slashes for URLs regardless of OS
-    const imageUrl = `/uploads/${file.filename}`;
+    const imageUrl = '/uploads/' + file.filename;
 
     // Check if gallery already exists for user
     let gallery = await UserGallery.findOne({ userId });
@@ -544,7 +544,7 @@ const getRecommendations = async (req, res) => {
     // Ensure all users have member IDs
     const usersWithMemberIDs = await Promise.all(users.map(async (user) => {
       if (!user.memberid) {
-        console.log(`User ${user.name} missing member ID, generating...`);
+        console.log('User ' + user.name + ' missing member ID, generating...');
         await ensureMemberID(user._id.toString());
         // Fetch updated user data with userType filter to ensure admin users are still excluded
         return await User.findOne({ _id: user._id, userType: 'user' });
@@ -666,8 +666,8 @@ const getAllNotificationsAdmin = async (req, res) => {
   try {
     const notifications = await Notification.find({})
       .sort({ createdAt: -1 })
-      .populate("sender", "name email profilePhoto mobile memberid profileType")
-      .populate("receiver", "name email profilePhoto mobile memberid profileType");
+      .populate("sender", "name email profilePhoto mobile memberid profileType gender religion caste height occupation monthlyIncome fatherName motherName siblings about age location profileStatus")
+      .populate("receiver", "name email profilePhoto mobile memberid profileType gender religion caste height occupation monthlyIncome fatherName motherName siblings about age location profileStatus");
 
     const formattedNotifications = notifications.map(notification => ({
       _id: notification._id,
@@ -680,7 +680,20 @@ const getAllNotificationsAdmin = async (req, res) => {
         profilePhoto: notification.sender['profilePhoto'],
         mobile: notification.sender['mobile'],
         memberid: notification.sender['memberid'],
-        profileType: notification.sender['profileType']
+        profileType: notification.sender['profileType'],
+        gender: notification.sender['gender'],
+        religion: notification.sender['religion'],
+        caste: notification.sender['caste'],
+        height: notification.sender['height'],
+        occupation: notification.sender['occupation'],
+        monthlyIncome: notification.sender['monthlyIncome'],
+        fatherName: notification.sender['fatherName'],
+        motherName: notification.sender['motherName'],
+        siblings: notification.sender['siblings'],
+        about: notification.sender['about'],
+        age: notification.sender['age'],
+        location: notification.sender['location'],
+        isVerified: notification.sender['profileStatus'] === 'Verified'
       } : null,
       receiver: notification.receiver && typeof notification.receiver === 'object' ? {
         id: notification.receiver._id,
@@ -689,9 +702,22 @@ const getAllNotificationsAdmin = async (req, res) => {
         profilePhoto: notification.receiver['profilePhoto'],
         mobile: notification.receiver['mobile'],
         memberid: notification.receiver['memberid'],
-        profileType: notification.receiver['profileType']
+        profileType: notification.receiver['profileType'],
+        gender: notification.receiver['gender'],
+        religion: notification.receiver['religion'],
+        caste: notification.receiver['caste'],
+        height: notification.receiver['height'],
+        occupation: notification.receiver['occupation'],
+        monthlyIncome: notification.receiver['monthlyIncome'],
+        fatherName: notification.receiver['fatherName'],
+        motherName: notification.receiver['motherName'],
+        siblings: notification.receiver['siblings'],
+        about: notification.receiver['about'],
+        age: notification.receiver['age'],
+        location: notification.receiver['location'],
+        isVerified: notification.receiver['profileStatus'] === 'Verified'
       } : null
-    }));
+    })).filter(notification => notification.sender && notification.receiver); // Filter out notifications with missing sender or receiver
 
     res.json({ 
       notifications: formattedNotifications,
