@@ -1,6 +1,7 @@
 // src/utils/memberIdGenerator.js
 const moment = require('moment');
 const User = require('../models/User');
+const { nanoid } = require("nanoid");
 
 /**
  * Generate a unique member ID in format: RMYYYYMM + 3-digit sequential number
@@ -13,21 +14,22 @@ const generateMemberID = async (registrationDate = new Date()) => {
     const yearMonth = `RM${moment(registrationDate).format('YYYYMM')}`;
     
     // Count existing users with memberid starting with current year-month
-    const count = await User.countDocuments({ 
-      memberid: new RegExp(`^${yearMonth}`) 
-    });
+    // const count = await User.countDocuments({ 
+    //   memberid: new RegExp(`^${yearMonth}`) 
+    // });
 
     // Generate new member ID: RMYYYYMM + incremental count (3 digits)
-    const memberIdNumber = count + 1;
-    const memberid = `${yearMonth}${String(memberIdNumber).padStart(3, '0')}`;
+    // const memberIdNumber = count + 1;
+    //  * Generate a unique member ID in format: RMYYYYMM + 5-char NanoID
+    const memberid = `${yearMonth}${nanoid(5)}`;
     
     // Double check uniqueness (in case of concurrent requests)
-    const existingMember = await User.findOne({ memberid });
-    if (existingMember) {
-      // If collision detected, try next number
-      const nextNumber = count + 2;
-      return `${yearMonth}${String(nextNumber).padStart(3, '0')}`;
-    }
+    // const existingMember = await User.findOne({ memberid });
+    // if (existingMember) {
+    //   // If collision detected, try next number
+    //   const nextNumber = count + 2;
+    //   return `${yearMonth}${String(nextNumber).padStart(3, '0')}`;
+    // }
     
     return memberid;
   } catch (error) {
@@ -174,8 +176,11 @@ const validateMemberID = (memberid) => {
   }
   
   // Check format: RMYYYYMM + 3 digits (e.g., "RM202501001")
-  const regex = /^RM(20\d{2})(0[1-9]|1[0-2])(\d{3})$/;
-  return regex.test(memberid);
+  const oldFormatRegex = /^RM(20\d{2})(0[1-9]|1[0-2])(\d{3})$/;
+  // Check format: RMYYYYMM + 5-char NanoID
+  const newFormatRegex = /^RM(20\d{2})(0[1-9]|1[0-2])[A-Za-z0-9_-]{5}$/;
+  
+  return oldFormatRegex.test(memberid) || newFormatRegex.test(memberid);
 };
 
 /**
