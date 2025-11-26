@@ -616,7 +616,10 @@ const toggleLike = async (req, res) => {
     let liked = false;
     let notification;
 
-    if (user.likes.includes(currentUserId)) {
+    // Check if user already likes the current user using consistent method
+    const alreadyLiked = user.likes.some(likeId => likeId.toString() === currentUserId);
+    
+    if (alreadyLiked) {
       // Unlike
       user.likes = user.likes.filter(id => id.toString() !== currentUserId);
     } else {
@@ -646,6 +649,105 @@ const toggleLike = async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Admin function to remove a like between two users
+const removeLike = async (req, res) => {
+  try {
+    const { senderId, receiverId } = req.body;
+    
+    // Find both users
+    const senderUser = await User.findById(senderId);
+    const receiverUser = await User.findById(receiverId);
+    
+    if (!senderUser) return res.status(404).json({ message: "Sender user not found" });
+    if (!receiverUser) return res.status(404).json({ message: "Receiver user not found" });
+    
+    // Log member ID formats for debugging
+    console.log('Sender member ID:', senderUser.memberid);
+    console.log('Receiver member ID:', receiverUser.memberid);
+    console.log('Sender ID format check:', senderUser.memberid && senderUser.memberid.match(/^RM\d+$/)? 'Numeric format' : 'Other format');
+    console.log('Receiver ID format check:', receiverUser.memberid && receiverUser.memberid.match(/^RM\d+$/)? 'Numeric format' : 'Other format');
+    
+    // Log likes array for detailed inspection
+    console.log('Receiver likes array:', receiverUser.likes);
+    console.log('Receiver likes count:', receiverUser.likes ? receiverUser.likes.length : 0);
+    
+    // Check each like in detail
+    if (receiverUser.likes) {
+      receiverUser.likes.forEach((likeId, index) => {
+        console.log(`Like[${index}]: ${likeId} (type: ${typeof likeId})`);
+        console.log(`  Comparison with senderId (${senderId}):`, likeId.toString() === senderId);
+        
+        // Try to find the user this like refers to
+        User.findById(likeId).then(likedUser => {
+          if (likedUser) {
+            console.log(`  Like[${index}] refers to user: ${likedUser.name} (${likedUser.memberid})`);
+          } else {
+            console.log(`  Like[${index}] refers to non-existent user`);
+          }
+        }).catch(err => {
+          console.log(`  Error looking up like[${index}]:`, err.message);
+        });
+      });
+    }
+    
+    // Check if receiver has the sender in their likes array
+    // Using the same method as in toggleLike function for consistency
+    const hasLikeRelationship = receiverUser.likes && receiverUser.likes.some(likeId => likeId.toString() === senderId);
+    
+    console.log('Has like relationship:', hasLikeRelationship);
+    
+    if (hasLikeRelationship) {
+      receiverUser.likes = receiverUser.likes.filter(id => id.toString() !== senderId);
+      await receiverUser.save();
+      
+      // Also remove the notification if it exists
+      await Notification.deleteOne({
+        sender: senderId,
+        receiver: receiverId,
+        type: "like"
+      });
+      
+      res.json({ 
+        message: `Like removed between ${senderUser.name} and ${receiverUser.name}.`,
+        success: true
+      });
+    } else {
+      // Even if there's no like relationship, we should still remove any related notifications
+      // This handles cases where notifications were created but likes weren't properly recorded
+      const deletedNotification = await Notification.deleteOne({
+        sender: senderId,
+        receiver: receiverId,
+        type: "like"
+      });
+      
+      // Additional check - see if the senderId exists in any form in the likes array
+      const looseMatch = receiverUser.likes && receiverUser.likes.some(likeId => 
+        likeId.toString().includes(senderId) || senderId.includes(likeId.toString())
+      );
+      
+      console.log('Loose match check:', looseMatch);
+      console.log('Deleted notification count:', deletedNotification.deletedCount);
+      
+      if (deletedNotification.deletedCount > 0) {
+        // If we deleted a notification, consider this a success even though there was no like relationship
+        res.json({ 
+          message: `Notification removed between ${senderUser.name} and ${receiverUser.name}. Note: No like relationship was found in the database, but a notification was removed.`,
+          success: true,
+          notificationOnly: true
+        });
+      } else {
+        res.status(400).json({ 
+          message: `No like relationship or notification found between these users. Sender: ${senderUser.name} (${senderUser.memberid}), Receiver: ${receiverUser.name} (${receiverUser.memberid}). Loose match: ${looseMatch}`,
+          success: false
+        });
+      }
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error", success: false });
   }
 };
  
@@ -966,6 +1068,7 @@ module.exports = {
   uploadToGallery, 
   getRecommendations, 
   toggleLike, 
+  removeLike, // Added removeLike function
   getNotifications, 
   adminupdateProfile, 
   admindeleteprofile, 

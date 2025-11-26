@@ -2,9 +2,10 @@
 const express = require("express");
 const router = express.Router();
 const authMiddleware  = require("../middlewares/authMiddleware");
+const adminMiddleware = require("../middlewares/adminMiddleware");
 const { likeUser, updateProfile,
    uploadPhoto ,getUserProfile,getAllUsers,uploadToGallery,getRecommendations, getAllNotificationsAdmin,
-   toggleLike,getNotifications,adminupdateProfile,admindeleteprofile,getUserProfileType,getUserProfileById,
+   toggleLike,removeLike,getNotifications,adminupdateProfile,admindeleteprofile,getUserProfileType,getUserProfileById,
     getUserGallery,adminprofileupdateProfile,getadminUserProfile,adminuploadToGallery,deletePhoto,admindeletePhoto, getAllAdminUsers
   
   } = require("../controllers/userController");
@@ -37,6 +38,9 @@ router.get("/notifications", authMiddleware, getNotifications);
 
 // Admin route (add admin middleware)
 router.get('/admin/notifications', authMiddleware, getAllNotificationsAdmin);
+
+// Admin route to remove likes
+router.post('/admin/remove-like', [authMiddleware, adminMiddleware], removeLike);
 
 router.post("/upload-photo", authMiddleware, upload.single("photo"), uploadToGallery);
 router.post("/admin-upload-photo/:profileId", authMiddleware, upload.single("photo"), adminuploadToGallery);
