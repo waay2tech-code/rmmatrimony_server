@@ -1057,6 +1057,52 @@ const admindeletePhoto = async (req, res) => {
   }
 };
 
+// Remove profile photo
+const removeProfilePhoto = async (req, res) => {
+  try {
+    const userId = req.userId;
+    
+    // Get the current user to access their profile photo
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    // If no profile photo exists, return an error
+    if (!user.profilePhoto) {
+      return res.status(400).json({ message: "No profile photo to remove" });
+    }
+    
+    // Store the current profile photo path for deletion
+    const currentPhotoPath = user.profilePhoto;
+    
+    // Update user by removing the profile photo
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { profilePhoto: null },
+      { new: true }
+    );
+    
+    // Delete the old photo file from the server
+    const filePath = path.resolve(currentPhotoPath.replace(/\\/g, '/')); // normalize slashes
+    fs.unlink(filePath, (err) => {
+      if (err) {
+        console.error("Error deleting profile photo file:", err);
+        // Continue with success response even if file deletion fails
+      }
+      res.json({
+        success: true,
+        message: 'Profile photo removed successfully',
+        user: updatedUser
+      });
+    });
+    
+  } catch (error) {
+    console.error("Error removing profile photo:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
 module.exports = { 
   getMatches, 
   searchProfiles, 
@@ -1081,6 +1127,7 @@ module.exports = {
   adminuploadToGallery, 
   deletePhoto, 
   admindeletePhoto, 
-  getAllAdminUsers 
+  getAllAdminUsers,
+  removeProfilePhoto
 };
   

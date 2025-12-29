@@ -6,7 +6,7 @@ const adminMiddleware = require("../middlewares/adminMiddleware");
 const { likeUser, updateProfile,
    uploadPhoto ,getUserProfile,getAllUsers,uploadToGallery,getRecommendations, getAllNotificationsAdmin,
    toggleLike,removeLike,getNotifications,adminupdateProfile,admindeleteprofile,getUserProfileType,getUserProfileById,
-    getUserGallery,adminprofileupdateProfile,getadminUserProfile,adminuploadToGallery,deletePhoto,admindeletePhoto, getAllAdminUsers
+    getUserGallery,adminprofileupdateProfile,getadminUserProfile,adminuploadToGallery,deletePhoto,admindeletePhoto, getAllAdminUsers, removeProfilePhoto
   
   } = require("../controllers/userController");
 const upload = require("../middlewares/uploadMiddleware");
@@ -49,6 +49,9 @@ router.get("/profile-type", authMiddleware, getUserProfileType);
 
 router.delete('/delete-photo', authMiddleware,deletePhoto);
 router.delete('/admin-delete-photo/:profileId', authMiddleware,admindeletePhoto);
+
+// Remove profile photo
+router.delete('/remove-profile-photo', authMiddleware, removeProfilePhoto);
 
 //router.post("/upload-photo", authMiddleware, upload.single("photo"), uploadPhoto);
 
