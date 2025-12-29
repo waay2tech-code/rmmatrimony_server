@@ -132,14 +132,13 @@ const likeUser = async (req, res) => {
 // ✅ Update Profile Controller (Fixed)
 const updateProfile = async (req, res) => {
   try {
-    //const userId ="6884587aa6abc068d41345ae"; // Get userId from auth middleware
-   const reqs=req.body;
-   const usr=req.userId;
-   const userId = req.userId; // from authMiddleware
-   console.log("file", req.file); // ✅ Check uploaded image info
-   console.log("body",reqs,usr);
-   console.log("reqbody",req.body);
-   
+    const reqs=req.body;
+    const usr=req.userId;
+    const userId = req.userId; // from authMiddleware
+    console.log("file", req.file); // ✅ Check uploaded image info
+    console.log("body",reqs,usr);
+    console.log("reqbody",req.body);
+    
     const updateData = {
       name: req.body.name,
       gender: req.body.gender,
@@ -166,10 +165,57 @@ const updateProfile = async (req, res) => {
       caste: req.body.caste,
       otherCaste: req.body.otherCaste
     };
+  
   // ✅ Add uploaded image path if exists
   if (req.file) {
+    // If a new file is uploaded, check if there was an existing profile photo to delete
+    const user = await User.findById(userId);
+    if (user && user.profilePhoto && user.profilePhoto.startsWith('/uploads/')) {
+      // Delete the old profile photo file before setting the new one
+      const path = require('path');
+      const fs = require('fs');
+      const oldPhotoPath = path.join(__dirname, '../../..', user.profilePhoto);
+      const uploadsDir = path.join(__dirname, '../../../uploads');
+      
+      if (oldPhotoPath.startsWith(uploadsDir)) {
+        fs.unlink(oldPhotoPath, (err) => {
+          if (err) {
+            console.error("Error deleting old profile photo:", err);
+          } else {
+            console.log("Old profile photo deleted:", oldPhotoPath);
+          }
+        });
+      }
+    }
+    
     updateData.profilePhoto = `/uploads/${req.file.filename}`;
     console.log("Setting profile photo to:", updateData.profilePhoto);
+  } else if (req.body.profilePhoto === null || req.body.profilePhoto === 'null' || req.body.profilePhoto === '' || 
+             (req.body.profilePhoto && typeof req.body.profilePhoto === 'string' && 
+              (req.body.profilePhoto.trim() === '' || req.body.profilePhoto.trim() === 'null'))) {
+    // Explicitly set profilePhoto to null if client intends to remove it
+    // Check if there was an existing profile photo to delete
+    const user = await User.findById(userId);
+    if (user && user.profilePhoto && user.profilePhoto.startsWith('/uploads/')) {
+      // Delete the old profile photo file
+      const path = require('path');
+      const fs = require('fs');
+      const oldPhotoPath = path.join(__dirname, '../../..', user.profilePhoto);
+      const uploadsDir = path.join(__dirname, '../../../uploads');
+      
+      if (oldPhotoPath.startsWith(uploadsDir)) {
+        fs.unlink(oldPhotoPath, (err) => {
+          if (err) {
+            console.error("Error deleting profile photo during removal:", err);
+          } else {
+            console.log("Profile photo deleted during removal:", oldPhotoPath);
+          }
+        });
+      }
+    }
+    
+    updateData.profilePhoto = null;
+    console.log("Removing profile photo");
   }
 
     const user = await User.findByIdAndUpdate(
@@ -1068,8 +1114,11 @@ const removeProfilePhoto = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
     
+    // Check if profile photo exists (handle various possible values)
+    const hasProfilePhoto = user.profilePhoto && user.profilePhoto !== null && user.profilePhoto !== '' && user.profilePhoto !== 'null';
+    
     // If no profile photo exists, return an error
-    if (!user.profilePhoto) {
+    if (!hasProfilePhoto) {
       return res.status(400).json({ message: "No profile photo to remove" });
     }
     
@@ -1083,19 +1132,53 @@ const removeProfilePhoto = async (req, res) => {
       { new: true }
     );
     
-    // Delete the old photo file from the server
-    const filePath = path.resolve(currentPhotoPath.replace(/\\/g, '/')); // normalize slashes
-    fs.unlink(filePath, (err) => {
-      if (err) {
-        console.error("Error deleting profile photo file:", err);
-        // Continue with success response even if file deletion fails
+    // Delete the old photo file from the server if it's a file path (not a URL)
+    if (currentPhotoPath && typeof currentPhotoPath === 'string' && currentPhotoPath.startsWith('/uploads/')) {
+      const path = require('path');
+      const fs = require('fs');
+      
+      // Construct the absolute file path - handle both relative and absolute paths
+      let absolutePath;
+      if (path.isAbsolute(currentPhotoPath)) {
+        absolutePath = currentPhotoPath;
+      } else {
+        // Handle the case where the path starts with /uploads/
+        absolutePath = path.join(__dirname, '../../../', currentPhotoPath);
       }
+      
+      // Additional check to ensure we're only deleting files from the uploads directory
+      const uploadsDir = path.join(__dirname, '../../../uploads');
+      if (absolutePath.startsWith(uploadsDir)) {
+        fs.unlink(absolutePath, (err) => {
+          if (err) {
+            console.error("Error deleting profile photo file:", err);
+            // Log the error but continue with success response since the DB update succeeded
+          } else {
+            console.log("Profile photo file deleted successfully:", absolutePath);
+          }
+          res.json({
+            success: true,
+            message: 'Profile photo removed successfully',
+            user: updatedUser
+          });
+        });
+      } else {
+        // If the path is not in the uploads directory, just update the database
+        console.warn("Profile photo path is not in uploads directory, only updating database:", currentPhotoPath);
+        res.json({
+          success: true,
+          message: 'Profile photo removed successfully',
+          user: updatedUser
+        });
+      }
+    } else {
+      // If the profile photo is not a local file path (e.g., external URL) or not a valid path, just update the database
       res.json({
         success: true,
         message: 'Profile photo removed successfully',
         user: updatedUser
       });
-    });
+    }
     
   } catch (error) {
     console.error("Error removing profile photo:", error);
