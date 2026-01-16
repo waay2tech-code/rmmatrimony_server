@@ -172,8 +172,6 @@ const updateProfile = async (req, res) => {
     const user = await User.findById(userId);
     if (user && user.profilePhoto && user.profilePhoto.startsWith('/uploads/')) {
       // Delete the old profile photo file before setting the new one
-      const path = require('path');
-      const fs = require('fs');
       const oldPhotoPath = path.join(__dirname, '../../..', user.profilePhoto);
       const uploadsDir = path.join(__dirname, '../../../uploads');
       
@@ -198,8 +196,6 @@ const updateProfile = async (req, res) => {
     const user = await User.findById(userId);
     if (user && user.profilePhoto && user.profilePhoto.startsWith('/uploads/')) {
       // Delete the old profile photo file
-      const path = require('path');
-      const fs = require('fs');
       const oldPhotoPath = path.join(__dirname, '../../..', user.profilePhoto);
       const uploadsDir = path.join(__dirname, '../../../uploads');
       
@@ -1134,8 +1130,6 @@ const removeProfilePhoto = async (req, res) => {
     
     // Delete the old photo file from the server if it's a file path (not a URL)
     if (currentPhotoPath && typeof currentPhotoPath === 'string' && currentPhotoPath.startsWith('/uploads/')) {
-      const path = require('path');
-      const fs = require('fs');
       
       // Construct the absolute file path - handle both relative and absolute paths
       let absolutePath;
@@ -1186,6 +1180,37 @@ const removeProfilePhoto = async (req, res) => {
   }
 };
 
+// Delete admin user
+const admindeleteAdmin = async (req, res) => {
+  const userId = req.params.profileId;
+
+  try {
+    // Find the user to check if they are an admin
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+    
+    // Verify that the user is indeed an admin
+    if (user.userType !== 'admin') {
+      return res.status(400).json({ message: "User is not an admin" });
+    }
+    
+    // Allow admin deletion (as the request comes from another admin via authMiddleware)
+    const deletedAdmin = await User.findByIdAndDelete(userId);
+
+    if (!deletedAdmin) {
+      return res.status(404).json({ message: "Admin not found" });
+    }
+
+    res.status(200).json({ message: "Admin deleted successfully" });
+  } catch (err) {
+    console.error("Admin deletion error:", err);
+    res.status(500).json({ message: "Failed to delete admin" });
+  }
+};
+
 module.exports = { 
   getMatches, 
   searchProfiles, 
@@ -1211,6 +1236,7 @@ module.exports = {
   deletePhoto, 
   admindeletePhoto, 
   getAllAdminUsers,
+  admindeleteAdmin,
   removeProfilePhoto
 };
   
