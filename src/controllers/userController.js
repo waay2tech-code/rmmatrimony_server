@@ -13,11 +13,12 @@ const getMatches = async (req, res) => {
     const currentUser = await User.findById(req.userId);
     if (!currentUser) return res.status(404).json({ message: "User not found" });
 
+    // Newest registrations first (createdAt descending).
     const mutualMatches = await User.find({
       _id: { $in: currentUser.likes },
       likes: req.userId,
       userType: 'user' // Exclude admin users from matches
-    });
+    }).sort({ createdAt: -1 });
 
     res.status(200).json(mutualMatches);
   } catch (error) {
@@ -288,10 +289,15 @@ const adminprofileupdateProfile = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
+    // Success payload is unchanged: the updated user document, HTTP 200.
     res.status(200).json(user);
   } catch (err) {
-    console.error("Update Error:", err);
-    res.status(500).json({ error: "Update failed" });
+    console.error("Admin profile update error:", err);
+    // Return clean JSON instead of letting the exception escape. A thrown
+    // error here would reach Express's default handler, which can drop the
+    // CORS headers and surface in the browser as a CORS/network failure.
+    if (res.headersSent) return res.end();
+    res.status(500).json({ success: false, message: err.message || "Internal server error" });
   }
 };
 
@@ -350,10 +356,12 @@ const adminupdateProfile = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
+    // Success payload is unchanged.
     res.status(200).json({ message: "Profile updated successfully", user });
   } catch (err) {
-    console.error("Update Error:", err);
-    res.status(500).json({ error: "Update failed" });
+    console.error("Admin profile update error:", err);
+    if (res.headersSent) return res.end();
+    res.status(500).json({ success: false, message: err.message || "Internal server error" });
   }
 };
 // ✅ Upload Photo
@@ -448,7 +456,8 @@ const getadminUserProfile = async (req, res) => {
 
 const getAllAdminUsers = async (req, res) => {
   try {
-    const admins = await User.find({ userType: 'admin' }).select("-password");
+    // Newest admin accounts first (createdAt descending).
+    const admins = await User.find({ userType: 'admin' }).select("-password").sort({ createdAt: -1 });
     
     res.status(200).json(admins);
   } catch (err) {
