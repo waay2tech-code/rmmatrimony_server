@@ -57,7 +57,7 @@ const searchProfiles = async (req, res) => {
 
     console.log("📊 Final MongoDB query:", JSON.stringify(query, null, 2));
 
-    const profiles = await User.find(query).select("-password");
+    const profiles = await User.find(query).select("-password").sort({ createdAt: -1 });
     const currentUser = await User.findById(req.userId);
     if (!currentUser) return res.status(404).json({ message: "User not found" });
 
@@ -476,7 +476,8 @@ const getAllUsers = async (req, res) => {
     if (gender) filter.gender = { $regex: new RegExp('^' + gender + '$', 'i') };
 
     // Include all necessary fields for admin panel
-    const users = await User.find(filter).select("-password");
+    // Sort newest registrations first (createdAt descending)
+    const users = await User.find(filter).select("-password").sort({ createdAt: -1 });
     
     // Ensure all users have member IDs
     const usersWithMemberIDs = await Promise.all(users.map(async (user) => {
@@ -492,6 +493,36 @@ const getAllUsers = async (req, res) => {
     res.status(200).json(usersWithMemberIDs);
   } catch (err) {
     console.error("Error fetching users:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ✅ Admin dashboard analytics - read-only summary stats.
+// Counts member profiles only (userType 'user'); admin accounts are excluded
+// so the numbers match what the "All Users" table displays.
+const getAdminAnalytics = async (req, res) => {
+  try {
+    const now = new Date();
+    const startOfToday = new Date(
+      now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0
+    );
+
+    const memberFilter = { userType: 'user' };
+
+    const [totalUsers, todayRegistrations, activeUsers] = await Promise.all([
+      User.countDocuments(memberFilter),
+      User.countDocuments({ ...memberFilter, createdAt: { $gte: startOfToday } }),
+      User.countDocuments({ ...memberFilter, isActive: true }),
+    ]);
+
+    res.status(200).json({
+      totalUsers,
+      todayRegistrations,
+      activeUsers,
+      startOfToday: startOfToday.toISOString(),
+    });
+  } catch (err) {
+    console.error("Error fetching analytics:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -631,8 +662,15 @@ const getRecommendations = async (req, res) => {
       };
     });
 
-    // Step 4: Sort by matchPercentage descending
-    recommendations.sort((a, b) => b.matchPercentage - a.matchPercentage);
+    // Step 4: Sort newest registrations first (createdAt descending).
+    // Match percentage is kept as a secondary tie-breaker so relevance is
+    // preserved for profiles registered at the same instant.
+    recommendations.sort((a, b) => {
+      const aCreated = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bCreated = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (bCreated !== aCreated) return bCreated - aCreated;
+      return b.matchPercentage - a.matchPercentage;
+    });
 
     res.status(200).json({ recommendations });
   } catch (err) {
@@ -1219,6 +1257,7 @@ module.exports = {
   uploadPhoto, 
   getUserProfile, 
   getAllUsers, 
+  getAdminAnalytics, // Admin dashboard summary stats (read-only)
   uploadToGallery, 
   getRecommendations, 
   toggleLike, 

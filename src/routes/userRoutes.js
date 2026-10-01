@@ -6,7 +6,7 @@ const adminMiddleware = require("../middlewares/adminMiddleware");
 const { likeUser, updateProfile,
    uploadPhoto ,getUserProfile,getAllUsers,uploadToGallery,getRecommendations, getAllNotificationsAdmin,
    toggleLike,removeLike,getNotifications,adminupdateProfile,admindeleteprofile,getUserProfileType,getUserProfileById,
-    getUserGallery,adminprofileupdateProfile,getadminUserProfile,adminuploadToGallery,deletePhoto,admindeletePhoto, getAllAdminUsers, admindeleteAdmin, removeProfilePhoto
+    getUserGallery,adminprofileupdateProfile,getadminUserProfile,adminuploadToGallery,deletePhoto,admindeletePhoto, getAllAdminUsers, admindeleteAdmin, removeProfilePhoto, getAdminAnalytics
   
   } = require("../controllers/userController");
 const upload = require("../middlewares/uploadMiddleware");
@@ -29,6 +29,8 @@ router.get("/gallery/:id", authMiddleware, getUserGallery);
 router.get("/allusers", getAllUsers);
 // Get admin users
 router.get("/adminusers", getAllAdminUsers);
+// Admin dashboard analytics (admins only, read-only)
+router.get("/admin/analytics", authMiddleware, adminMiddleware, getAdminAnalytics);
 
 router.get("/matches",  authMiddleware,getRecommendations);
 //router.post("/like/:id", authMiddleware, likeUser);
